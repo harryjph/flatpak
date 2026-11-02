@@ -126,6 +126,11 @@ can find an executable.
 
 ## Publishing to GitHub Pages
 
+GitHub Pages is only available for **public** repositories on the free plan.
+Private repositories require a paid plan with Pages support. If the repository
+must stay private, publish `dist/*.flatpak` as GitHub Release assets instead;
+the workflow's `gh-pages` repo is still built but cannot be served.
+
 One OSTree repo serves every package. The workflow:
 
 1. Checks out `gh-pages` into `site/` (preserving repo history).

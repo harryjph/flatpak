@@ -169,6 +169,7 @@ jobs:
       - name: Commit and push
         run: |
           cd site
+          find repo -name '*.lock' -type f -delete 2>/dev/null || true
           git add -A
           if git diff --cached --quiet; then
             echo "No changes to publish"

@@ -136,6 +136,10 @@ persistent OSTree repo on the `gh-pages` branch, signs commits and the summary
 (when a key is configured), generates one shared `.flatpakrepo`, and publishes
 an index. One remote serves all packages.
 
+GitHub Pages is only available for **public** repositories on the free plan.
+Private repositories need a paid plan that includes Pages, or you can publish
+the `dist/*.flatpak` bundles as GitHub Release assets instead.
+
 One-time setup:
 
 1. Create a dedicated passphrase-less signing key:

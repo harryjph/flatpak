@@ -173,6 +173,21 @@ to verify update history. If the secret is not configured the workflow still
 deploys, but the repo is unsigned and `GPGKey` is omitted; clients then need
 `--no-gpg-verify`. The official remote should always be signed.
 
+This repository's live signing key is:
+
+```
+fingerprint BFCA9A6542FFA510BDF73C0CA8D6C76ED26393C7
+public key  keys/harryjph-flatpak.asc
+```
+
+The private key exists only as the `FLATPAK_GPG_PRIVATE_KEY` Actions secret
+(GitHub secrets are write-only, so there is no local copy). To rotate, generate
+a new key, update the secret and `keys/*.asc`, remove `site/repo` for the first
+signed publish, and tell users to re-add the remote if verification fails.
+
+GitHub Pages for private repositories requires a paid plan; this repository is
+public so the free Pages tier works.
+
 If a repository was previously published unsigned, remove `site/repo` before
 the first signed publish (or start from a fresh `gh-pages` branch) so the whole
 history is signed with the final key.

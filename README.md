@@ -19,8 +19,10 @@ flatpak install --user harryjph org.droposs.client
 flatpak update --user
 ```
 
-While the repository is unsigned, add it with `--no-gpg-verify` instead; see
-[Publishing](#publishing-to-github-pages) for enabling signing.
+The published repository is GPG-signed. The current signing key fingerprint is
+`BFCA9A6542FFA510BDF73C0CA8D6C76ED26393C7`; the public key is in
+[`keys/harryjph-flatpak.asc`](keys/harryjph-flatpak.asc). Only add
+`--no-gpg-verify` if you are hosting an intentionally unsigned copy.
 
 ## Build locally
 
@@ -140,7 +142,7 @@ GitHub Pages is only available for **public** repositories on the free plan.
 Private repositories need a paid plan that includes Pages, or you can publish
 the `dist/*.flatpak` bundles as GitHub Release assets instead.
 
-One-time setup:
+Key setup (already configured for this repository):
 
 1. Create a dedicated passphrase-less signing key:
 
@@ -158,6 +160,12 @@ One-time setup:
 
 4. In **Settings → Pages**, choose **Deploy from a branch**, branch `gh-pages`,
    folder `/ (root)`.
+
+The live repository uses key `BFCA9A6542FFA510BDF73C0CA8D6C76ED26393C7`. The
+private key is stored only as the `FLATPAK_GPG_PRIVATE_KEY` Actions secret; the
+public key is committed at `keys/harryjph-flatpak.asc`. Keep the same key for
+future releases, otherwise clients that trusted the old key may reject the
+update history.
 
 Published layout:
 
@@ -181,6 +189,7 @@ history or rebuild periodically. See `AGENTS.md` for maintenance details.
 ```
 build.sh                     build dispatcher
 repo.conf                    remote name/title/homepage
+keys/                        public signing key(s)
 scripts/build-package.sh     generic package builder
 scripts/write-flatpakrepo.sh .flatpakrepo generator
 packages/<app-id>/           one directory per package

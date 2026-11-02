@@ -1,0 +1,7 @@
+[Flatpak Repo]
+Title=Harryjph Flatpak Repository
+Url=https://harryjph.github.io/flatpak/repo/
+Homepage=https://github.com/harryjph/flatpak
+Comment=Flatpak packages maintained by harryjph
+Description=A personal Flatpak repository containing packages built from upstream releases.
+GPGKey=mDMEaujsQBYJKwYBBAHaRw8BAQdA4t045WHg9jl2WxW8jtVA5HG9Wtikmd73TV/RPvRqBcK0NUhhcnJ5anBoIEZsYXRwYWsgU2lnbmluZyA8ZmxhdHBha0BoYXJyeWpwaC5naXRodWIuaW8+iJMEExYKADsWIQS/ypplQv+lEL33PAyo1sdu0mOTxwUCaujsQAIbAwULCQgHAgIiAgYVCgkICwIEFgIDAQIeBwIXgAAKCRCo1sdu0mOTx/qKAQDMF973s3AnNSwY25760hFWQ5fVzeHX9OFQrMzxQhKzJQEA4Wkgru/0c5MUNV1IZC3efYPdYuUMGynUktJEqKjxFw8=

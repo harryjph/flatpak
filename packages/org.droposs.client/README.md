@@ -88,6 +88,14 @@ access. Most work because the runtime is close to Fedora 44. Caveats:
   login" will not create a working host autostart entry.
 * **Tray icon** is disabled because `libayatana-appindicator` is not in the
   GNOME runtime. The rest of the app works.
+* **Window resizing**: Drop creates an undecorated window
+  (`.decorations(false)`) and its frontend only implements window dragging,
+  not resize handles. The window is technically resizable (it has no maximum
+  size hint), but there is no titlebar or border to grab. On KDE, resize with
+  **Alt+right-drag** or **Alt+F8**, or add a KWin Window Rule for class
+  `drop-app` forcing **No titlebar and frame = No**. This is not
+  Flatpak-specific; the real fix belongs upstream (enable decorations or add
+  `startResizeDragging` handles).
 * The upstream binary is prebuilt; this package does not compile Drop from
   source.
 

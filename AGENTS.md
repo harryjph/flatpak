@@ -346,6 +346,15 @@ provided.
   login" does not create a working host autostart entry.
 * **Tray icon** is disabled because `libayatana-appindicator` is not in the
   GNOME runtime; the app logs `appindicator library not available at runtime`.
+* **Window resizing**: upstream creates the main window with
+  `.decorations(false)` and `.shadow(false)` in
+  `desktop/src-tauri/src/lib.rs`; the frontend only calls
+  `window.startDragging()` and implements no resize grips. There is no
+  maximum-size hint, so the window is technically resizable, but there is no
+  titlebar/border to grab. On KDE use Alt+right-drag or Alt+F8, or add a KWin
+  Window Rule for class `drop-app` forcing "No titlebar and frame" = No. A
+  proper fix is upstream: enable decorations or call Tauri's
+  `startResizeDragging` from edge hitboxes.
 * The package uses a prebuilt upstream binary, not a source build.
 
 ### Updating Drop
@@ -467,6 +476,7 @@ flatpak --user install -y flathub org.gnome.Platform//50
 | Drop starts but Proton options are missing | The `/app/bin/umu-run` probe must exist and be executable; Drop only checks spawn success, not exit status. |
 | Game fails with missing `.so` | Native game needs a library not in the runtime; use the umu option to run on the host. |
 | WebKit window blank / GPU issues | Check runtime branch and drivers; `WEBKIT_DISABLE_DMABUF_RENDERER=1` is a last-resort workaround, not a default. |
+| Cannot resize the Drop window | Upstream undecorated window with no resize grips. Use Alt+right-drag / Alt+F8 on KDE or a KWin rule forcing decorations. Not a Flatpak issue. |
 | Permissions differ from `finish-args.txt` | Re-run `flatpak build-finish` (just rebuild) and check `flatpak info --show-permissions`. |
 | Pages install fails with GPG error | `GPGKey` missing/stale in `.flatpakrepo`, or summary/commit not signed. Re-export the public key. |
 | Workflow fails to install a runtime | The runtime is not on Flathub; add its `RUNTIME_REPO` to the workflow's runtime step. |

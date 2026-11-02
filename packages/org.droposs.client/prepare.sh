@@ -27,11 +27,28 @@ fi
 
 echo "Extracting $RPM"
 extract_dir="$PACKAGE_WORK_DIR/extracted"
+payload="$PACKAGE_WORK_DIR/payload.cpio"
 rm -rf "$extract_dir"
 mkdir -p "$extract_dir"
+
+# Ubuntu's rpm2cpio (rpm 4.18) exits non-zero for RPMs produced by newer rpm
+# versions even when it writes a complete payload. Judge success by whether a
+# non-empty cpio archive was produced, and let cpio validate it.
+set +e
+rpm2cpio "$APP_DIR/$RPM" > "$payload"
+rpm2cpio_rc=$?
+set -e
+if [ "$rpm2cpio_rc" -ne 0 ]; then
+    echo "warning: rpm2cpio exited $rpm2cpio_rc (continuing if the payload is valid)"
+fi
+if [ ! -s "$payload" ]; then
+    echo "error: rpm2cpio produced no payload for $RPM" >&2
+    exit 1
+fi
+
 (
     cd "$extract_dir"
-    rpm2cpio "$APP_DIR/$RPM" | cpio -idm --quiet
+    cpio -idm < "$payload"
 )
 
 install -Dm755 "$extract_dir/usr/bin/drop-app" "$FILES_DIR/bin/drop-app-bin"

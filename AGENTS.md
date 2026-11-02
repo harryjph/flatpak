@@ -168,6 +168,10 @@ to verify update history. If the secret is not configured the workflow still
 deploys, but the repo is unsigned and `GPGKey` is omitted; clients then need
 `--no-gpg-verify`. The official remote should always be signed.
 
+If a repository was previously published unsigned, remove `site/repo` before
+the first signed publish (or start from a fresh `gh-pages` branch) so the whole
+history is signed with the final key.
+
 `scripts/write-flatpakrepo.sh` embeds the public key as base64:
 
 ```ini

@@ -69,9 +69,38 @@ So:
   flatpak override --user --env=DROP_HOST_UMU=/path/to/umu-run org.droposs.client
   ```
 
-Proton auto-discovery reads `~/.steam/root/compatibilitytools.d`. Because
-`--filesystem=host` is granted, `$HOME` inside the sandbox is the real host
-home, so this works normally.
+#### Proton discovery
+
+Drop only auto-scans these two directories:
+
+```
+/usr/share/steam/compatibilitytools.d/       # inside Flatpak: the runtime's /usr, not the host's
+~/.steam/root/compatibilitytools.d/
+```
+
+A directory is only accepted if it contains **both** `proton` and
+`compatibilitytool.vdf`.
+
+Consequences:
+
+* **Official Steam Proton versions** (Proton Experimental, Proton 9.0, etc.)
+  live in `~/.local/share/Steam/steamapps/common/` and do not ship a
+  `compatibilitytool.vdf`, so Drop will not auto-detect them. Install
+  **GE-Proton via ProtonUp-Qt** (which creates a proper tool in
+  `compatibilitytools.d`) or add the path manually after providing a
+  `compatibilitytool.vdf`.
+* **Flatpak Steam** stores compatibility tools under
+  `~/.var/app/com.valvesoftware.Steam/.local/share/Steam/compatibilitytools.d`.
+  Drop does not scan that path; add the Proton directory with
+  **Settings → Proton → Manual Proton Layers**.
+* On **Steam Deck**, native Steam's compatibility tools are normally at
+  `~/.steam/root/compatibilitytools.d` (a symlink to
+  `~/.local/share/Steam/compatibilitytools.d`), which Drop can see through
+  `--filesystem=host`. System-wide tools in SteamOS's `/usr/share/steam` are
+  not visible inside the Flatpak runtime.
+
+Because `--filesystem=host` is granted, `$HOME` inside the sandbox is the real
+host home, so the `~/.steam/root` path works.
 
 ### Native Linux games
 

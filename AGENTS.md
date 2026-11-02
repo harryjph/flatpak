@@ -332,6 +332,39 @@ Critical details:
   `Command::output()` succeeded, so umu still appears installed; a missing host
   umu produces a clear error at launch time.
 
+### Proton discovery
+
+Drop's auto-discovery is hardcoded to:
+
+```
+/usr/share/steam/compatibilitytools.d/
+$HOME/.steam/root/compatibilitytools.d/
+```
+
+and only accepts a directory containing both `proton` and
+`compatibilitytool.vdf` (`desktop/src-tauri/process/src/compat.rs`).
+
+* **Official Steam Proton** versions live in
+  `~/.local/share/Steam/steamapps/common/` and do not have
+  `compatibilitytool.vdf`. They are not discovered. Install GE-Proton with
+  ProtonUp-Qt (creates a proper compatibility tool), or add a
+  `compatibilitytool.vdf` and use the manual path picker.
+* **Flatpak Steam** keeps tools in
+  `~/.var/app/com.valvesoftware.Steam/.local/share/Steam/compatibilitytools.d`.
+  Drop does not scan it; use **Settings → Proton → Manual Proton Layers**.
+* Inside our Flatpak, `/usr/share/steam/...` resolves to the GNOME runtime,
+  not the host. Only the `$HOME/.steam/root` path is useful. System-wide
+  SteamOS tools are invisible; copy/symlink them into the home path.
+* On Steam Deck, native Steam's path is
+  `~/.steam/root/compatibilitytools.d` (symlink to
+  `~/.local/share/Steam/compatibilitytools.d`). ProtonUp-Qt with the native
+  Steam path is the reliable setup.
+* After adding a layer, restart Drop so the settings page refetches the list.
+
+Launching a discovered layer through our Flatpak still requires host
+`umu-run` (see above). On SteamOS, install umu-launcher per-user if possible,
+or point `DROP_HOST_UMU` at a host-accessible executable.
+
 ### Native Linux games
 
 "Native (direct)" games execute inside the sandbox with host filesystem
@@ -474,6 +507,7 @@ flatpak --user install -y flathub org.gnome.Platform//50
 | Host umu sees `PULSE_SERVER=/run/flatpak/...` and no audio | Denylist not applied or `--clear-env` missing. |
 | `umu-run was not found on the host` | Install umu-launcher on the host or set `DROP_HOST_UMU`. |
 | Drop starts but Proton options are missing | The `/app/bin/umu-run` probe must exist and be executable; Drop only checks spawn success, not exit status. |
+| Proton layers not listed | Drop only scans `~/.steam/root/compatibilitytools.d` (plus the runtime's `/usr/share/steam`) and requires `proton` + `compatibilitytool.vdf`. Official Steam Proton in `steamapps/common` is not discovered; use GE-Proton/ProtonUp-Qt or manual add. Flatpak Steam's `.var/app/.../compatibilitytools.d` path must be added manually. |
 | Game fails with missing `.so` | Native game needs a library not in the runtime; use the umu option to run on the host. |
 | WebKit window blank / GPU issues | Check runtime branch and drivers; `WEBKIT_DISABLE_DMABUF_RENDERER=1` is a last-resort workaround, not a default. |
 | Cannot resize the Drop window | Upstream undecorated window with no resize grips. Use Alt+right-drag / Alt+F8 on KDE or a KWin rule forcing decorations. Not a Flatpak issue. |

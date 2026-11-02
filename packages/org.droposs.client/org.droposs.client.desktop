@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Drop Desktop Client
+GenericName=Game Library
+Comment=The client application for the open-source, self-hosted game distribution platform Drop
+Exec=drop-app %u
+Icon=org.droposs.client
+Terminal=false
+Categories=Game;
+Keywords=game;games;launcher;library;drop;self-hosted;
+StartupWMClass=drop-app
+MimeType=x-scheme-handler/drop;

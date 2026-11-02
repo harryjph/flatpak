@@ -1,0 +1,178 @@
+name: Publish Flatpak repository
+
+# Builds every package under packages/*, appends them to the persistent OSTree
+# repository on the gh-pages branch, signs it (when a key is configured) and
+# lets GitHub Pages serve a single Flatpak remote for all packages.
+#
+# One-time setup:
+#   - Settings -> Pages -> Source: Deploy from a branch
+#   - Branch: gh-pages, folder: / (root)
+#   - Secret FLATPAK_GPG_PRIVATE_KEY = ASCII-armored, passphrase-less signing key
+#   - Optional variable FLATPAK_GPG_KEY_ID if the keyring contains >1 key
+#
+# Without the signing secret the workflow still deploys, but the repository is
+# unsigned and clients must add it with --no-gpg-verify.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: flatpak-pages
+  cancel-in-progress: false
+
+env:
+  PAGES_BRANCH: gh-pages
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak ostree rpm cpio
+
+      - name: Restore Flatpak runtime cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/flatpak
+          key: flatpak-runtimes-${{ hashFiles('packages/*/package.env') }}
+
+      - name: Install runtimes
+        run: |
+          flatpak remote-add --user --if-not-exists flathub \
+            https://dl.flathub.org/repo/flathub.flatpakrepo
+
+          while IFS= read -r ref; do
+            echo "Installing runtime $ref"
+            flatpak install --user -y --noninteractive "$ref"
+          done < <(
+            for env in packages/*/package.env; do
+              (
+                # shellcheck disable=SC1090
+                . "$env"
+                printf '%s//%s\n' "$RUNTIME" "$RUNTIME_VERSION"
+              )
+            done | sort -u
+          )
+
+      - name: Check out the Pages branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin "$PAGES_BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$PAGES_BRANCH"
+            git worktree add site "origin/$PAGES_BRANCH"
+            (
+              cd site
+              git checkout -B "$PAGES_BRANCH"
+            )
+          else
+            git worktree add --detach site
+            (
+              cd site
+              git checkout --orphan "$PAGES_BRANCH"
+              git rm -rf . >/dev/null 2>&1 || true
+              find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            )
+          fi
+
+          touch site/.nojekyll
+
+      - name: Import signing key
+        env:
+          FLATPAK_GPG_PRIVATE_KEY: ${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}
+          FLATPAK_GPG_KEY_ID: ${{ vars.FLATPAK_GPG_KEY_ID }}
+        run: |
+          if [ -z "${FLATPAK_GPG_PRIVATE_KEY:-}" ]; then
+            echo "::warning::FLATPAK_GPG_PRIVATE_KEY is not set; publishing an UNSIGNED repository."
+            exit 0
+          fi
+
+          mkdir -p "$HOME/.gnupg"
+          chmod 700 "$HOME/.gnupg"
+          printf '%s\n' "$FLATPAK_GPG_PRIVATE_KEY" | gpg --batch --import
+
+          key_id="${FLATPAK_GPG_KEY_ID:-}"
+          if [ -z "$key_id" ]; then
+            key_id="$(gpg --list-secret-keys --with-colons | awk -F: '/^sec:/ {print $5; exit}')"
+          fi
+          if [ -z "$key_id" ]; then
+            echo "error: no secret key found after import" >&2
+            exit 1
+          fi
+
+          echo "GPG_SIGN=$key_id" >> "$GITHUB_ENV"
+          echo "Using signing key $key_id"
+
+      - name: Build all packages
+        env:
+          REPO_DIR: ${{ github.workspace }}/site/repo
+          DIST_DIR: ${{ github.workspace }}/site/bundles
+          WORK_ROOT: ${{ runner.temp }}/flatpak-work
+          KEEP_REPO: "1"
+        run: ./build.sh
+
+      - name: Write remote descriptor and landing page
+        run: |
+          # shellcheck disable=SC1091
+          . ./repo.conf
+
+          owner="${GITHUB_REPOSITORY_OWNER}"
+          repo_name="${GITHUB_REPOSITORY#*/}"
+          base_url="https://${owner}.github.io"
+          if [ "$repo_name" != "${owner}.github.io" ]; then
+            base_url="${base_url}/${repo_name}"
+          fi
+
+          scripts/write-flatpakrepo.sh \
+            "site/${REMOTE_NAME}.flatpakrepo" \
+            "${base_url}/repo/" \
+            "${GPG_SIGN:-}"
+
+          {
+            echo '<!doctype html>'
+            echo '<html lang="en">'
+            echo "<head><meta charset=\"utf-8\"><title>${REPO_TITLE}</title></head>"
+            echo '<body>'
+            echo "<h1>${REPO_TITLE}</h1>"
+            echo '<p>Add this repository and install a package:</p>'
+            echo "<pre>flatpak remote-add --if-not-exists --user ${REMOTE_NAME} ${base_url}/${REMOTE_NAME}.flatpakrepo"
+            echo "flatpak install --user ${REMOTE_NAME} &lt;app-id&gt;</pre>"
+            echo '<h2>Packages</h2>'
+            echo '<ul>'
+            while IFS= read -r env; do
+              (
+                # shellcheck disable=SC1090
+                . "$env"
+                printf '<li><strong>%s</strong> <code>%s</code> %s<br><code>flatpak install --user %s %s</code> &middot; <a href="bundles/%s.flatpak">single-file bundle</a></li>\n' \
+                  "$APP_NAME" "$APP_ID" "$VERSION" "$REMOTE_NAME" "$APP_ID" "$APP_ID"
+              )
+            done < <(find packages -mindepth 2 -maxdepth 2 -name package.env | sort)
+            echo '</ul>'
+            echo '</body>'
+            echo '</html>'
+          } > site/index.html
+
+      - name: Commit and push
+        run: |
+          cd site
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to publish"
+            exit 0
+          fi
+          git commit -m "Publish Flatpak repository"
+          git push origin "HEAD:${PAGES_BRANCH}"

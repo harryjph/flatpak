@@ -1,0 +1,104 @@
+# Drop Desktop Client
+
+Flatpak package for the [Drop](https://github.com/Drop-OSS/drop) Desktop
+Client, repackaged from the upstream RPM:
+
+```
+https://github.com/Drop-OSS/drop/releases/download/v0.4.0-rc-6/Drop.Desktop.Client-0.4.0-1.x86_64.rpm
+```
+
+## Runtime
+
+`org.gnome.Platform//50` — the Fedora 44 build needs WebKitGTK 4.1, ICU 77,
+glycin, GTK 3 and glibc 2.42. GNOME 50 provides all of them.
+
+## Build
+
+From the repository root:
+
+```sh
+./build.sh org.droposs.client
+```
+
+The result is `dist/org.droposs.client.flatpak`. Add
+`KEEP_REPO=1` and a `GPG_SIGN` key to add to an existing shared repository.
+
+## Sandbox permissions
+
+| Permission | Why |
+| --- | --- |
+| `--filesystem=host` | Games can be installed anywhere, cloud saves and Proton installs are outside the app home, and game dirs must stay usable outside the sandbox. |
+| `--share=network` | Drop server, downloads and updates. |
+| `--share=ipc`, `--socket=x11`, `--socket=wayland` | UI and games; X11 is kept for XWayland. |
+| `--socket=pulseaudio` | Audio. |
+| `--device=all` | GPU, controllers/gamepads and other game devices. |
+| `--talk-name=org.freedesktop.Flatpak` | Required for `flatpak-spawn --host` (Proton/umu launches). |
+| `--talk-name=org.freedesktop.Notifications`, `--talk-name=org.kde.StatusNotifierWatcher` | Notifications and tray. |
+| `--own-name=org.droposs.client.SingleInstance` | Tauri single-instance / `drop://` deep links. |
+
+This is intentionally broad: it is a game launcher that runs arbitrary
+downloaded executables from the host.
+
+## Game launching
+
+### Windows games / Proton (umu-run)
+
+Drop looks for `umu-run` in `PATH`, `/app/share`, `/usr/local/share`,
+`/usr/share` or `/opt`, then runs it with `GAMEID`, `PROTONPATH`, `WINEPREFIX`
+and `UMU_NO_PROTON`.
+
+This package ships `/app/bin/umu-run`, which forwards the launch to the
+**host's** `umu-run` with `flatpak-spawn --host`:
+
+```
+Drop -> /app/bin/umu-run -> flatpak-spawn --host umu-run ...
+```
+
+So:
+
+* **umu-launcher must be installed on the host.**
+* Proton and the Steam Linux Runtime run outside the sandbox with the host's
+  Python, drivers and Steam setup.
+* Sandbox-only variables (`PULSE_SERVER`, `XAUTHORITY`,
+  `DBUS_SESSION_BUS_ADDRESS`, Python/typelib paths, `FLATPAK_*`) are stripped
+  before the host process starts; game launch variables and paths are
+  preserved.
+* Override the host executable if needed:
+
+  ```sh
+  flatpak override --user --env=DROP_HOST_UMU=/path/to/umu-run org.droposs.client
+  ```
+
+Proton auto-discovery reads `~/.steam/root/compatibilitytools.d`. Because
+`--filesystem=host` is granted, `$HOME` inside the sandbox is the real host
+home, so this works normally.
+
+### Native Linux games
+
+"Native (direct)" games execute inside the sandbox with host filesystem
+access. Most work because the runtime is close to Fedora 44. Caveats:
+
+* Missing runtime libraries cause the game to fail; select the
+  "Steam Linux Runtime (umu-run)" option to run it on the host instead.
+* 32-bit-only games need 32-bit runtime libraries, which are not provided.
+
+## Known limitations
+
+* **Autostart** writes to the app's private config directory, so "start on
+  login" will not create a working host autostart entry.
+* **Tray icon** is disabled because `libayatana-appindicator` is not in the
+  GNOME runtime. The rest of the app works.
+* The upstream binary is prebuilt; this package does not compile Drop from
+  source.
+
+## Files
+
+```
+package.env                    package metadata and RPM source
+prepare.sh                     downloads/extracts the RPM into the /app tree
+finish-args.txt                sandbox permissions
+drop-app                       launcher wrapper (argv[0], Steam fallback)
+umu-run                        host umu-run bridge
+org.droposs.client.desktop     desktop entry / drop:// handler
+org.droposs.client.metainfo.xml
+```

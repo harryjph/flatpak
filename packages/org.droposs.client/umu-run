@@ -1,0 +1,86 @@
+#!/bin/bash
+# umu-run bridge for the Drop Flatpak.
+#
+# Drop expects a program called "umu-run" on PATH (or in /app/share,
+# /usr/local/share, /usr/share or /opt) and runs it with GAMEID, PROTONPATH,
+# WINEPREFIX and UMU_NO_PROTON in the environment.
+#
+# The Flatpak sandbox does not contain the host's umu-launcher, Python, Proton
+# or Steam Linux Runtime. Instead of nesting pressure-vessel inside Flatpak,
+# forward the launch to the host with flatpak-spawn. Paths work unchanged
+# because the per-app home (/home/user/.var/app/org.droposs.client) and any
+# --filesystem=host path resolve to the same absolute paths on the host.
+#
+# Requirements on the host:
+#   - umu-launcher installed (provides umu-run)
+#   - the Flatpak has --talk-name=org.freedesktop.Flatpak
+#
+# Set DROP_HOST_UMU to override the host executable, e.g.
+#   flatpak override --user --env=DROP_HOST_UMU=/opt/umu/umu-run org.droposs.client
+
+# Drop probes for umu by running it without arguments. Skip the round-trip.
+[ "$#" -eq 0 ] && exit 0
+
+host_umu="${DROP_HOST_UMU:-}"
+
+if [ -z "$host_umu" ]; then
+    host_umu="$(flatpak-spawn --host sh -c 'command -v umu-run' 2>/dev/null | head -n 1)"
+fi
+
+if [ -z "$host_umu" ]; then
+    app_id="${FLATPAK_ID:-org.droposs.client}"
+    host_home="${HOME%/.var/app/${app_id}}"
+    if [ "$host_home" = "$HOME" ]; then
+        host_home="$(getent passwd "$(id -u)" 2>/dev/null | cut -d: -f6)"
+    fi
+
+    for candidate in \
+        "${host_home:+$host_home/.local/bin/umu-run}" \
+        /usr/local/bin/umu-run \
+        /usr/bin/umu-run
+    do
+        [ -n "$candidate" ] || continue
+        if flatpak-spawn --host test -x "$candidate" >/dev/null 2>&1; then
+            host_umu="$candidate"
+            break
+        fi
+    done
+fi
+
+if [ -z "$host_umu" ]; then
+    echo "Drop: umu-run was not found on the host." >&2
+    echo "Install umu-launcher on the host (or set DROP_HOST_UMU)." >&2
+    exit 127
+fi
+
+# flatpak-spawn forwards the sandbox environment by default. That is mostly
+# what we want (GAMEID, PROTONPATH, WINEPREFIX, UMU_NO_PROTON, DISPLAY,
+# WAYLAND_DISPLAY, XDG_RUNTIME_DIR, ...), but a host Python/Proton process must
+# not inherit pointers to sandbox-only paths:
+#
+#   - typelibs/Python paths point into /app
+#   - PULSE_SERVER, ALSA_* and DBUS_SESSION_BUS_ADDRESS point at private
+#     sockets under /run/flatpak that do not exist on the host
+#   - XAUTHORITY points at the sandbox X11 cookie
+#   - FLATPAK_* makes host tools think they are still inside a Flatpak
+#
+# Start from a clean environment and copy everything except that denylist, then
+# restore a normal host PATH. The host's own D-Bus, PulseAudio and X11 defaults
+# are used again because their override variables are absent.
+skip_vars="LD_LIBRARY_PATH LD_PRELOAD PYTHONPATH PYTHONHOME PYTHONUSERBASE GI_TYPELIB_PATH GSETTINGS_SCHEMA_DIR GIO_EXTRA_MODULES PULSE_SERVER PULSE_CLIENTCONFIG ALSA_CONFIG_PATH ALSA_CONFIG_DIR XAUTHORITY DBUS_SESSION_BUS_ADDRESS"
+
+spawn_args=()
+while IFS= read -r -d '' entry; do
+    name="${entry%%=*}"
+    case " $skip_vars " in
+        *" $name "*) continue ;;
+    esac
+    case "$name" in
+        FLATPAK_*|container|container_uuid) continue ;;
+    esac
+    spawn_args+=("--env=$entry")
+done < <(env -0)
+
+spawn_args+=("--env=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${HOME:+:$HOME/.local/bin}")
+
+exec flatpak-spawn --host --clear-env "${spawn_args[@]}" "$host_umu" "$@"

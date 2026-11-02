@@ -1,0 +1,18 @@
+# Build products
+/repo/
+/dist/
+/work/
+/staging/
+/build/
+/extracted/
+*.flatpak
+
+# Downloaded upstream artifacts
+/packages/*/*.rpm
+/packages/*/*.rpm.part
+/packages/*/downloads/
+
+# Local Flatpak installations used for testing in a container
+/.flatpak-data/
+/.flatpak-cache/
+/.flatpak-config/

@@ -1,0 +1,19 @@
+# Sandbox permissions for Drop Desktop Client.
+#
+# The host filesystem and all devices are intentional: this is a game launcher
+# that must execute arbitrary downloaded games and see Proton/Steam installs.
+--share=network
+--share=ipc
+--socket=x11
+--socket=wayland
+--socket=pulseaudio
+--device=all
+--filesystem=host
+
+# /app/bin/umu-run forwards Proton/umu launches to the host with flatpak-spawn.
+--talk-name=org.freedesktop.Flatpak
+
+# Desktop integration.
+--talk-name=org.freedesktop.Notifications
+--talk-name=org.kde.StatusNotifierWatcher
+--own-name=org.droposs.client.SingleInstance

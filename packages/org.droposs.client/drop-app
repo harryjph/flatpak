@@ -1,0 +1,38 @@
+#!/bin/bash
+# Drop Desktop Client launcher wrapper for the Flatpak build.
+#
+# Two things happen here:
+#
+# 1. Drop discovers Proton installations under ~/.steam/root/compatibilitytools.d.
+#    Inside a Flatpak, $HOME is the per-app home (~/.var/app/org.droposs.client),
+#    so link the host's Steam directory into it. The host home is reachable
+#    because the manifest grants --filesystem=host.
+#
+# 2. Keep argv[0] as "drop-app" so the window class still matches the
+#    StartupWMClass in the desktop file even though the real binary has a
+#    different filename.
+set -u
+
+app_id="${FLATPAK_ID:-org.droposs.client}"
+
+# /home/user/.var/app/org.droposs.client -> /home/user
+host_home="${HOME%/.var/app/${app_id}}"
+if [ "$host_home" = "$HOME" ]; then
+    # Not running inside the sandbox, or an unusual home layout. Fall back to
+    # the passwd database.
+    host_home=""
+    if command -v getent >/dev/null 2>&1; then
+        host_home="$(getent passwd "$(id -u)" 2>/dev/null | cut -d: -f6)"
+    fi
+fi
+
+if [ -n "$host_home" ] && [ "$host_home" != "$HOME" ] && [ -d "$host_home" ]; then
+    if [ -d "$host_home/.steam" ]; then
+        mkdir -p "$HOME"
+        if [ ! -e "$HOME/.steam" ] && [ ! -L "$HOME/.steam" ]; then
+            ln -s "$host_home/.steam" "$HOME/.steam"
+        fi
+    fi
+fi
+
+exec -a drop-app /app/bin/drop-app-bin "$@"

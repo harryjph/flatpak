@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.droposs.client</id>
+  <name>Drop Desktop Client</name>
+  <summary>Client for the open-source, self-hosted Drop game platform</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+
+  <description>
+    <p>
+      Drop is an open-source, self-hosted game distribution platform. This is
+      the desktop client used to browse a Drop server, download and update
+      games, and launch them.
+    </p>
+    <p>
+      Native Linux games can be run directly. Windows games can be run through
+      Proton/umu-launcher, and native games can optionally be run inside the
+      Steam Linux Runtime.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">org.droposs.client.desktop</launchable>
+
+  <url type="homepage">https://github.com/Drop-OSS/drop</url>
+  <url type="bugtracker">https://github.com/Drop-OSS/drop/issues</url>
+  <url type="vcs-browser">https://github.com/Drop-OSS/drop</url>
+
+  <developer id="org.droposs">
+    <name>Drop OSS</name>
+  </developer>
+
+  <categories>
+    <category>Game</category>
+  </categories>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="0.4.0" date="2026-10-18">
+      <description>
+        <p>Drop Desktop Client 0.4.0 release candidate 6.</p>
+      </description>
+    </release>
+  </releases>
+</component>

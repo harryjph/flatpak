@@ -10,6 +10,8 @@
 # Downloaded upstream artifacts
 /packages/*/*.rpm
 /packages/*/*.rpm.part
+/packages/*/*.deb
+/packages/*/*.deb.part
 /packages/*/downloads/
 
 # Local Flatpak installations used for testing in a container

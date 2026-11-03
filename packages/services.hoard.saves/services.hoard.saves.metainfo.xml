@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Based on upstream's flatpak/services.hoard.saves.metainfo.xml. Values come
+  from crates/hoard-desktop/tauri.conf.json and Cargo.toml; keep them in sync
+  when updating the package.
+-->
+<component type="desktop-application">
+  <id>services.hoard.saves</id>
+  <launchable type="desktop-id">services.hoard.saves.desktop</launchable>
+  <name>Hoard</name>
+  <summary>Self-hosted cloud sync for game saves</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+
+  <developer id="services.hoard">
+    <name>Hoard</name>
+  </developer>
+
+  <url type="homepage">https://hoard.services</url>
+  <url type="bugtracker">https://github.com/rleeon/hoard/issues</url>
+  <url type="vcs-browser">https://github.com/rleeon/hoard</url>
+
+  <description>
+    <p>
+      Hoard syncs your game saves to your own server. Auto-detect games,
+      auto-backup when you stop playing, restore previous versions any time.
+    </p>
+    <p>
+      Every file is SHA256-hashed, versions are content-addressed and
+      deduplicated, and old snapshots never expire on a self-hosted server.
+      Hoard Cloud is optional: the app works the same against a server you run.
+    </p>
+  </description>
+
+  <categories>
+    <category>Utility</category>
+  </categories>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://hoard.services/WEB.png</image>
+      <caption>The dashboard: what is being tracked, how much of it there is, and when it last went up</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://hoard.services/dashboard.png</image>
+      <caption>A card per game, with its cloud versions and a button to back it up right now</caption>
+    </screenshot>
+  </screenshots>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="1.3.0" date="2026-10-25" />
+    <release version="1.2.2" date="2026-10-13" />
+    <release version="1.2.1" date="2026-10-03" />
+    <release version="1.2.0" date="2026-09-17" />
+    <release version="1.1.6" date="2026-09-02" />
+    <release version="1.1.5" date="2026-08-24" />
+  </releases>
+</component>

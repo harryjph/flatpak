@@ -8,6 +8,7 @@ Current packages:
 | App ID | Package | Version |
 | --- | --- | --- |
 | `org.droposs.client` | [Drop Desktop Client](packages/org.droposs.client/README.md) | 0.4.0 |
+| `services.hoard.saves` | [Hoard](packages/services.hoard.saves/README.md) | 1.3.0 |
 
 ## Install from the published remote
 
@@ -16,6 +17,7 @@ flatpak remote-add --if-not-exists --user harryjph \
   https://harryjph.github.io/flatpak/harryjph.flatpakrepo
 
 flatpak install --user harryjph org.droposs.client
+flatpak install --user harryjph services.hoard.saves
 flatpak update --user
 ```
 
@@ -27,8 +29,8 @@ The published repository is GPG-signed. The current signing key fingerprint is
 ## Build locally
 
 Requirements: `flatpak`, `curl`, `rpm2cpio` (from the `rpm` package on Ubuntu),
-`cpio` and `sha256sum`. `flatpak-builder` and the GNOME SDK are **not**
-required for prebuilt packages.
+`cpio`, `binutils` (`ar`, for the .deb packages) and `sha256sum`.
+`flatpak-builder` and the GNOME SDK are **not** required for prebuilt packages.
 
 ```sh
 ./build.sh                       # build every package
@@ -69,7 +71,8 @@ Install a local bundle:
 flatpak install --user ./dist/org.droposs.client.flatpak
 ```
 
-The Drop package needs `org.gnome.Platform//50`; add Flathub first if needed.
+The Drop and Hoard packages need `org.gnome.Platform//50`; add Flathub first if
+needed.
 
 ## Adding a package
 

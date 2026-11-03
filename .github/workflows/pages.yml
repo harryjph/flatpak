@@ -41,7 +41,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak ostree rpm cpio
+          sudo apt-get install -y flatpak ostree rpm cpio binutils
 
       - name: Restore Flatpak runtime cache
         uses: actions/cache@v4

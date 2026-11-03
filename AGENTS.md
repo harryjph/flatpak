@@ -399,6 +399,88 @@ provided.
 4. Verify no new/missing libraries with `ldd` inside the installed app.
 5. Publish.
 
+## Package: services.hoard.saves (Hoard)
+
+Upstream:
+
+```
+https://github.com/rleeon/hoard/releases/download/v1.3.0/Hoard_1.3.0_amd64.deb
+sha256 3281634d02bf313059e84d62bb3e490b7cb43877bfec0721a23748dc5242fedc
+version 1.3.0, x86_64
+```
+
+Hoard is a Tauri v2 / WebKitGTK 4.1 save-backup app plus a resident daemon. The
+`.deb` is the desktop bundle and carries all three binaries, which **must stay
+in the same directory**:
+
+* `hoard-desktop` — GUI, the Flatpak `command`
+* `hoardd` — resident sync daemon, spawned as a bare-named sibling of the GUI
+* `hoard` — CLI client of `hoardd`
+
+Upstream maintains its own Flatpak manifest (`flatpak/services.hoard.saves.yml`,
+same ID, same runtime). This package follows it: same ID, `org.gnome.Platform//50`,
+`--filesystem=host`, `--filesystem=/var/mnt`. Two deliberate differences: the
+tray is skipped (the runtime has no `libayatana-appindicator`, and this repo
+extracts prebuilt binaries instead of building shared-modules), and
+`--own-name=dev.hoard.desktop.SingleInstance` is granted so a second launch
+raises the existing window — which matters more here because there is no tray.
+
+### How the daemon works in the sandbox
+
+* The GUI spawns `hoardd` detached (`setsid`, stdio to `/dev/null`). Closing the
+  window does not stop it, and Flatpak keeps the sandbox alive while any process
+  remains, so it keeps syncing.
+* Login start cannot use systemd (no `systemctl` in the runtime; the sandbox's
+  `$XDG_CONFIG_HOME` is not the host's). Upstream uses
+  `org.freedesktop.portal.Background`: the Settings toggle asks the portal, which
+  writes `~/.config/autostart/services.hoard.saves.desktop` **on the host** with
+  `flatpak run --command=hoardd services.hoard.saves`. That entry is the
+  persistent daemon. It is opt-in and cannot be created at install time.
+* The socket is `$XDG_RUNTIME_DIR/hoard/hoardd.sock` inside the app's private
+  runtime dir. All `flatpak run` invocations of this app join one sandbox, so the
+  GUI, the CLI and the autostart daemon share the socket. Verify with
+  `flatpak run --command=hoard services.hoard.saves whoami` and look for
+  `client connected` in the daemon log.
+
+### PID namespace: process detection is blind
+
+`--filesystem=host` exposes host files, not the host process table. Inside the
+sandbox `/proc` lists only sandbox processes (confirmed: 5 vs 467 on the host).
+Consequences: no `GameStopped` trigger, no playtime, no "heavy process → scan".
+Backups still happen — the per-save inotify watcher schedules a
+`FilesystemSettled` backup on write, plus the hourly sweep and manual backups —
+but the trigger is file activity, not game exit. Do not try to "fix" this in
+the manifest; it is inherent to Flatpak. The alternative is the native
+`hoardd` on the host.
+
+### Tray and close-to-tray
+
+Without `libayatana-appindicator` the tray install panics, is caught upstream,
+and the app continues (expected warning). But `close_to_tray` defaults to true,
+so X hides the window with no tray to restore it: relaunch the app
+(single-instance raises the window) or turn the setting off, or
+`flatpak kill services.hoard.saves`.
+
+### Known limitations
+
+* No tray icon; no process detection (see above).
+* No self-update: `/app` is read-only, the app reports itself managed.
+* A native Hoard and this one share the D-Bus name
+  `dev.hoard.desktop.SingleInstance`; do not run both at once, or a launch may
+  forward its argv to the other install.
+* `hoard://` deep links are exported via `MimeType=x-scheme-handler/hoard` and
+  `Exec=hoard-desktop %u`; a callback arrives as a second launch and is
+  forwarded by the single-instance plugin.
+
+### Updating Hoard
+
+1. Update `VERSION`, `DEB`, `DEB_URL`, `DEB_SHA256` in
+   `packages/services.hoard.saves/package.env`.
+2. Update the release list in `services.hoard.saves.metainfo.xml`.
+3. `./build.sh services.hoard.saves` and the Hoard checks below.
+4. Verify `ldd` inside the installed app for new/missing libraries.
+5. Publish.
+
 ## Testing
 
 ### Generic
@@ -406,7 +488,9 @@ provided.
 ```sh
 bash -n build.sh scripts/*.sh packages/*/prepare.sh packaging/* 2>/dev/null || true
 appstreamcli validate --no-net packages/org.droposs.client/org.droposs.client.metainfo.xml
+appstreamcli validate --no-net packages/services.hoard.saves/services.hoard.saves.metainfo.xml
 desktop-file-validate packages/org.droposs.client/org.droposs.client.desktop
+desktop-file-validate packages/services.hoard.saves/services.hoard.saves.desktop
 python3 -c 'import yaml; yaml.safe_load(open(".github/workflows/pages.yml"))'
 ./build.sh --list
 ./build.sh
@@ -476,6 +560,46 @@ chmod +x native-test.sh
 flatpak run --command=sh org.droposs.client -c "$PWD/native-test.sh"
 ```
 
+### Hoard: install, daemon and autostart path
+
+```sh
+flatpak --user install -y --reinstall ./dist/services.hoard.saves.flatpak
+flatpak info --show-permissions services.hoard.saves
+
+# No unresolved libraries:
+flatpak run --command=ldd services.hoard.saves /app/bin/hoard-desktop | grep 'not found' || echo none
+flatpak run --command=ldd services.hoard.saves /app/bin/hoardd        | grep 'not found' || echo none
+
+# GUI starts the daemon:
+(flatpak run services.hoard.saves >/tmp/hoard-run.log 2>&1 &)
+sleep 10
+ps -eo pid,sid,args | grep -E '/app/bin/hoardd|hoard-desktop' | grep -v grep
+tail -20 ~/.var/app/services.hoard.saves/cache/hoard/logs/hoardd.log
+
+# The daemon outlives the window: kill only the hoard-desktop pid, then
+# `flatpak ps` must still list the app and hoardd must still be alive.
+
+# Login-start path, no GUI (what the Background portal entry runs):
+flatpak kill services.hoard.saves
+(flatpak run --command=hoardd services.hoard.saves >/tmp/hoardd.log 2>&1 &)
+sleep 8
+flatpak run --command=hoard services.hoard.saves whoami   # attaches to the same sandbox
+grep 'client connected' /tmp/hoardd.log                   # proves the IPC reached it
+flatpak kill services.hoard.saves
+```
+
+Expected:
+
+```
+INFO hoardd: listening address=/run/user/1000/hoard/hoardd.sock ... engine=true
+INFO hoardd::server: client connected client=hoard-desktop 1.3.0 (commands) protocol=1
+WARN hoard_desktop_lib: tray icon backend panicked (...), continuing without a tray icon
+WARN hoardd::engine: couldn't start the engine error=no session. ...
+```
+
+The tray panic and the `no session` warning are expected in this container (no
+libappindicator in the runtime, no secret service / signed-in session).
+
 ## Environment quirks in this container
 
 The real home `/home/harry` is root-owned and **not writable**; use a
@@ -512,6 +636,10 @@ flatpak --user install -y flathub org.gnome.Platform//50
 | WebKit window blank / GPU issues | Check runtime branch and drivers; `WEBKIT_DISABLE_DMABUF_RENDERER=1` is a last-resort workaround, not a default. |
 | Cannot resize the Drop window | Upstream undecorated window with no resize grips. Use Alt+right-drag / Alt+F8 on KDE or a KWin rule forcing decorations. Not a Flatpak issue. |
 | Permissions differ from `finish-args.txt` | Re-run `flatpak build-finish` (just rebuild) and check `flatpak info --show-permissions`. |
+| Hoard `x` button hides the window and nothing brings it back | No tray in this build. Relaunch Hoard (single-instance raises it), turn off Settings → "Close to tray", or `flatpak kill services.hoard.saves`. |
+| Hoard never backs up "when the game closes" / no playtime | Expected: the sandbox cannot see host processes. Backups still run on file-write settle and the hourly sweep. See the Hoard package section. |
+| Hoard "sync at login" toggle does nothing | `xdg-desktop-portal` and a desktop backend (GNOME/KDE) must be running; the portal writes `~/.config/autostart/services.hoard.saves.desktop` on the host. |
+| Two Hoard windows / launch forwards to the native install | A native Hoard and the Flatpak share `dev.hoard.desktop.SingleInstance`. Run only one. |
 | Pages install fails with GPG error | `GPGKey` missing/stale in `.flatpakrepo`, or summary/commit not signed. Re-export the public key. |
 | Workflow fails to install a runtime | The runtime is not on Flathub; add its `RUNTIME_REPO` to the workflow's runtime step. |
 | `--reinstall` of local bundle fails after testing the signed remote | Uninstall the signed-remote ref first. |
@@ -521,6 +649,10 @@ flatpak --user install -y flathub org.gnome.Platform//50
 * Do not remove `--filesystem=host`, `--device=all` or
   `--talk-name=org.freedesktop.Flatpak` from the Drop package without an
   explicit request; game launching stops working.
+* Do not remove `--filesystem=host` or `--filesystem=/var/mnt` from Hoard
+  without an explicit request; save discovery silently misses drives.
+* Do not try to grant Hoard access to the host process table. Flatpak cannot,
+  and the daemon is designed to keep working without it.
 * Do not run umu/pressure-vessel inside the sandbox. Host `flatpak-spawn` is
   the supported path.
 * Do not assume `HOME` is the per-app home in Drop; the `host` filesystem

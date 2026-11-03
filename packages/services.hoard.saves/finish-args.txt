@@ -1,0 +1,38 @@
+# Sandbox permissions for Hoard.
+#
+# The host filesystem is not a convenience grant: Hoard's job is finding and
+# backing up game saves wherever they are — Steam libraries on other drives,
+# Proton/Wine prefixes, emulator folders, paths the user picked by hand. A
+# handful of narrower --filesystem entries would silently miss whichever drive
+# a game happens to be installed on.
+--filesystem=host
+
+# `host` excludes /var, which is where rpm-ostree distributions (Bazzite,
+# Silverblue, Kinoite, Aurora) mount extra disks: /var/mnt/<label>. Without
+# this, a second drive full of games is not merely undetected, it does not
+# exist inside the sandbox.
+--filesystem=/var/mnt
+
+# Cloud sync against Hoard Cloud or a self-hosted server.
+--share=network
+
+# The browser (WebKitGTK) needs shared memory, and a GPU for the webview.
+--share=ipc
+--device=dri
+
+# Window: Wayland, with X11/XWayland as the fallback.
+--socket=wayland
+--socket=fallback-x11
+
+# The daemon keeps the cloud token in the session's secret store (libsecret).
+# Without this name the store is absent, credentials fall back to a file in the
+# sandbox, and nothing says the token stopped being encrypted at rest.
+--talk-name=org.freedesktop.secrets
+
+# hoardd reports backup success/failure with native notifications.
+--talk-name=org.freedesktop.Notifications
+
+# Tauri single-instance: a second launch raises the existing window instead of
+# starting a second copy. The name comes from tauri.conf.json's identifier
+# (`dev.hoard.desktop`), not from the Flatpak ID.
+--own-name=dev.hoard.desktop.SingleInstance

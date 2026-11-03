@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Hoard
+Comment=Self-hosted cloud sync for game saves
+Exec=hoard-desktop %u
+Icon=services.hoard.saves
+Terminal=false
+Categories=Utility;
+StartupWMClass=hoard-desktop
+MimeType=x-scheme-handler/hoard;

@@ -118,6 +118,13 @@ if [ -n "${GPG_SIGN:-}" ]; then
 fi
 
 mkdir -p "$REPO_DIR"
+# Empty directories do not survive git, so a repository restored from a
+# checkout (the gh-pages branch the workflow builds against) comes back without
+# refs/remotes and refs/mirrors. `flatpak build-update-repo` lists refs/remotes
+# while generating deltas and fails with
+#   error: Listing refs: opendir(refs/remotes): No such file or directory
+# when it is gone. Recreate both; they are empty in a freshly exported repo too.
+mkdir -p "$REPO_DIR/refs/remotes" "$REPO_DIR/refs/mirrors"
 echo "==> Exporting to $REPO_DIR"
 flatpak build-export "${export_args[@]}" "$REPO_DIR" "$PACKAGE_WORK_DIR" "$BRANCH"
 

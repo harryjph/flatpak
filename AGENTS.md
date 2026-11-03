@@ -641,6 +641,7 @@ flatpak --user install -y flathub org.gnome.Platform//50
 | Hoard "sync at login" toggle does nothing | `xdg-desktop-portal` and a desktop backend (GNOME/KDE) must be running; the portal writes `~/.config/autostart/services.hoard.saves.desktop` on the host. |
 | Two Hoard windows / launch forwards to the native install | A native Hoard and the Flatpak share `dev.hoard.desktop.SingleInstance`. Run only one. |
 | Pages install fails with GPG error | `GPGKey` missing/stale in `.flatpakrepo`, or summary/commit not signed. Re-export the public key. |
+| `Listing refs: opendir(refs/remotes): No such file or directory` | The repo was restored from a git checkout, which drops empty `refs/remotes`/`refs/mirrors`. `scripts/build-package.sh` recreates them; do not remove that `mkdir -p`. |
 | Workflow fails to install a runtime | The runtime is not on Flathub; add its `RUNTIME_REPO` to the workflow's runtime step. |
 | `--reinstall` of local bundle fails after testing the signed remote | Uninstall the signed-remote ref first. |
 
